@@ -1,0 +1,255 @@
+---
+title: "Andrena asteris SDM"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Pkgs and functions
+
+### Pkgs
+
+```{r pkgs, results='hide'}
+if(!require(pacman)) install.packages("pacman")
+library(pacman)
+
+pacman::p_load(tidyverse, lubridate, ggmap, spThin, CoordinateCleaner, curl, raster, sf)
+pacman::p_load_gh("SEEG-Oxford/seegSDM")
+```
+
+### Functions
+
+
+## Load and process occ Data
+
+### Load and filter by date
+
+```{r Occ}
+gbif <- read_tsv("../occ/Aa_GBIF.txt")
+scan <- read_csv("../occ/Aa_SCAN.csv")
+amnh <- read_tsv("../occ/Aa_AMNH.txt")
+
+t_scan <- scan %>% 
+  dplyr::select(id, date = eventDate, lat = decimalLatitude, lon = decimalLongitude) %>% 
+  drop_na() %>% 
+  mutate(lat = round(lat,5), lon = round(lon,5)) %>%
+  mutate(source = "SCAN")
+
+
+t_gbif <- gbif %>% 
+  dplyr::select(gbifID, eventDate, verbatimEventDate, lat = decimalLatitude, lon = decimalLongitude) %>% 
+  separate(eventDate, c("date", NA), sep = " ") %>% 
+  mutate(verbatimEventDate = ifelse(is.na(date), verbatimEventDate, NA)) %>% 
+  unite(date, date, verbatimEventDate, na.rm = TRUE) %>% 
+  mutate(date = parse_date_time(date, orders = c("mdy", "ymd", "dmy"))) %>% 
+  drop_na() %>% 
+  mutate(lat = round(lat,5), lon = round(lon,5)) %>%
+  mutate(source = "GBIF")
+
+t_amnh <- amnh %>% 
+  mutate(date = parse_date_time(amnh$Start_Date, orders = c("mdy", "dmy"))) %>%
+  filter(year(date) <= Det_Date) %>%    
+  dplyr::select(PBIUSI, date, lat = Lat, lon = Lon) %>% 
+  drop_na() %>% 
+  mutate(lat = round(lat,5), lon = round(lon,5)) %>%
+  mutate(source = "AMNH")
+
+#Parsing errors for year only (old data) or "no date provided"
+
+occ.joined <- full_join(t_scan, t_gbif, by = c("date", "lat", "lon")) %>% 
+  full_join(t_amnh, by = c("date", "lat", "lon")) %>%
+  filter(!duplicated(.[c("date", "lat", "lon")])) %>% 
+  unite(data_source, source.x, source.y, source, sep = "/", na.rm = TRUE) %>% 
+  dplyr::select(date, lat, lon, data_source, scanID = id, gbifID, PBIUSI)
+
+date_start <- as.Date("1971-01-01")
+date_end <- as.Date("2000-12-31")
+
+occ <- occ.joined %>% 
+  filter(date >= date_start & date <= date_end) %>%
+  mutate(lat = floor(lat*10000)/10000, lon = floor(lon*10000)/10000) %>% 
+  distinct(lat, lon, .keep_all = TRUE) %>% 
+  mutate("spp" = "Aasteris")
+
+qmplot(x = lon, y = lat, data = occ, maptype = "toner-lite", mapcolor = "bw", source = "stamen", force = T)
+```
+
+### Check for georeferencing errors
+
+```{r}
+flags <- clean_coordinates(x = occ, lon = "lon", 
+                           lat = "lat", species = "spp",
+                           tests = c("capitals", "centroids", 
+                                     "equal", "gbif", "institutions", 
+                                     "outliers", "seas", "zeros"))
+
+summary(flags)
+plot(flags, lon = "lon", lat = "lat")
+
+occ.flagged <- occ[!flags$.summary,]
+
+write_csv(occ.flagged, file = "../occ/Aa_flagged.csv")
+```
+
+`r length(which(!flags$.sea))` occurrences were flagged for potentially being in the sea. These points are located on Block Island, Cuttyhunk Island, and Penikese Island which matches the metadata. The georeferencing is sufficiently accurate for this analysis. 
+
+A single point matches a research institution. The [occurrence remarks](https://bugguide.net/node/view/370287) provide no additional details this observation was excluded.
+
+```{r}
+occs <- occ %>% 
+  filter(is.na(scanID) | scanID != 34630476) %>% 
+  write_csv(file = "../occ/Aa_combined.csv") %>% 
+  dplyr::select(spp, lat, lon)
+```
+
+
+### Spatial Thinning w/ spThin
+
+```{r Thin occ, eval=FALSE}
+thinned <-
+  thin( loc.data = occs, 
+        lat.col = "lat", long.col = "lon", 
+        spec.col = "spp", 
+        thin.par = 10, reps = 100, 
+        locs.thinned.list.return = TRUE, 
+        write.files = TRUE, 
+        max.files = 5, 
+        out.dir = "../occ/Aa_thinned_full/", out.base = "Aa_thinned", 
+        write.log.file = TRUE,
+        log.file = "../occ/Aa_thinned_full_log_file.txt" )
+
+plotThin(thinned)
+```
+
+```{r load thin, message=FALSE}
+occt <- read_csv("../occ/Aa_thinned_full/Aa_thinned_thin1.csv") %>% 
+  dplyr::select(lon, lat)
+
+
+qmplot(x = lon, y = lat, data = occs, maptype = "toner-lite", mapcolor = "bw", source = "stamen", force = T)
+
+```
+
+Retained `r nrows(occt)` after spatial thinning.
+
+## Environmental Covariates
+
+Bioclimatic Variables
+
+  - Bio 1 : Mean Annual Temperature
+  - Bio 2 : Annual Mean Diurnal Range
+  - Bio 3 : Isothermality 
+  - Bio 4 : Temperature Seasonality
+  - Bio 5 : Max Temperature of Warmest Month
+  - Bio 7 : Annual Temperature Range
+  - Bio 8 : Mean Temperature of Wettest Quarter
+  - Bio 9 : Mean Temperature of Driest Quarter
+  - Bio 10 : Mean Temperature of Warmest Quarter
+  - Bio 11 : Mean Temperature of Coldest Quarter
+  - Bio 12 : Annual Precipitation
+  - Bio 13 : Precipitation of Wettest Month
+  - Bio 14 : Precipitation of Driest Month
+  - Bio 15 : Precipitation Seasonality
+  - Bio 16 : Precipitation of Wettest Quarter
+  - Bio 17 : Precipitation of Driest Quarter
+  - Bio 18 : Precipitation of Warmest Quarter
+  - Bio 19 : Precipitation of Coldest Quarter
+
+Other Climatologies
+  
+  - gddlgd0 : Last growing degree day above 0^o^C
+  
+
+Topography
+
+  - DEM?
+
+Other 
+
+  - Soil sand https://files.isric.org/soilgrids/latest/data_aggregated/ 
+  - Soil silt
+  - Land use http://www.cec.org/north-american-environmental-atlas/land-cover-30m-2015-landsat-and-rapideye/
+
+### Define study area
+
+```{r}
+proj.res <- c(0.008333333,0.008333333)
+proj.crs <- crs("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=WGS84 +units=m +no_defs")
+
+occs.sf <- sf::st_as_sf(occt, coords = c("lon", "lat"), crs = proj.crs) %>% 
+  st_cast("MULTIPOINT") %>% 
+  st_union()
+
+sa <- st_convex_hull(occs.sf) %>% 
+  st_buffer(5)
+
+sa.bb <- st_bbox(sa)+1
+```
+
+### Download env
+```{r env download, warnings = FALSE}
+
+dir.create("../pred/raw")
+dir.create("../pred/env")
+
+# paths <- lapply(list.files("../pred", pattern = "cov_paths.*txt", full.names = TRUE), 
+#                 read_delim, delim = "\\n", col_names = FALSE)
+
+
+paths <- read_delim("../pred/cov_paths_cont.txt", delim = "\\n", col_names = FALSE) %>% 
+  pull()
+
+dest <- sapply(paths, function(x) paste("../pred/raw/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
+names <- sapply(paths, function(x) paste("../pred/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
+
+for (i in 1:length(paths)) {
+  if(file.exists(dest[i]) | file.exists(names[i])){
+    if (file.exists(names[i])) {
+      print(paste("File exists:",names[i]))
+    } else {
+      print(paste("File exists:",dest[i]))
+    }
+    
+  } else {
+    
+    curl::curl_download(url = paths[i], destfile = dest[i])
+    
+    if(grepl(".*zip", dest[i])) {
+      unzip(dest[i], exdir = "../pred/raw")
+      
+    }
+  }
+}
+
+# if(length(dir("../pred/raw",all.files=TRUE)) != 0) {
+#   env.files <- list.files("../pred/raw", recursive = TRUE, pattern = ".*tif$") %>% 
+#     sapply(function(x) paste("../pred/raw/", x, sep = ""))
+#   
+#   env.raw <- lapply(env.files, raster)
+#   
+#   print("Reprojecting and croping raster layers, this will take a while...")
+#   
+#   env.crs <- lapply(env.raw, function(x) projectRaster(x,crs = proj.crs, res = proj.res))
+#   env.sa <- raster::crop(env, extent(sa.bb))
+#   
+# }  
+# 
+# if(length(dir("../pred/env",all.files=TRUE)) != 0) {
+#   env.files <- list.files("../pred/env", recursive = TRUE, pattern = ".*tif$") %>% 
+#     sapply(function(x) paste("../pred/env/", x, sep = ""))
+#   
+#   env.env <- lapply(env.files, raster)
+#   
+#   if(exists("env.sa")) {
+#    env.sa <- append(env.sa, env.env)
+#   } else {
+#     env.sa <- env.env
+#   }
+# }
+
+
+#unlink("../pred/raw", recursive = TRUE)
+```
+
