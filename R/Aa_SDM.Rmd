@@ -15,11 +15,45 @@ knitr::opts_chunk$set(echo = TRUE)
 if(!require(pacman)) install.packages("pacman")
 library(pacman)
 
-pacman::p_load(tidyverse, lubridate, ggmap, spThin, CoordinateCleaner, curl, raster, sf)
+pacman::p_load(tidyverse, lubridate, ggmap, spThin, CoordinateCleaner, curl, raster, sf,RStoolbox)
 pacman::p_load_gh("SEEG-Oxford/seegSDM")
+
 ```
 
 ### Functions
+```{r}
+envLoad <- function(paths, filedir) {
+  dest <- sapply(paths, function(x) paste(filedir,"/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
+  names <- sapply(paths, function(x) paste( gsub(".*/(\\w+)", "\\1", x), sep = "")) %>% 
+    sort() %>% 
+    sapply(function(x) paste("../pred/env/",x, sep = ""))
+  
+  for (i in 1:length(paths)) {
+    if(file.exists(dest[i]) | file.exists(names[i])){
+      if (file.exists(names[i])) {
+        print(paste("File exists:",names[i]))
+      } else {
+        unproc_cont <- TRUE
+        print(paste("File exists:",dest[i]))
+      }
+      
+    } else {
+      
+      print(paste("Downloading: ", paths[i]))
+      
+      unproc_cont <- TRUE
+      
+      curl::curl_download(url = paths[i], destfile = dest[i])
+      
+      if(grepl(".*zip", dest[i])) {
+        unzip(dest[i], exdir = filedir)
+        
+      }
+    }
+  }
+}
+```
+
 
 
 ## Load and process occ Data
@@ -175,81 +209,86 @@ Other
 ### Define study area
 
 ```{r}
-proj.res <- c(0.008333333,0.008333333)
-proj.crs <- crs("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=WGS84 +units=m +no_defs")
+proj.res <- c(0.08333333,0.08333333)
+proj.crs <- crs("+proj=longlat +datum=WGS84 +no_defs")
 
 occs.sf <- sf::st_as_sf(occt, coords = c("lon", "lat"), crs = proj.crs) %>% 
   st_cast("MULTIPOINT") %>% 
   st_union()
 
-sa <- st_convex_hull(occs.sf) %>% 
-  st_buffer(5)
-
-sa.bb <- st_bbox(sa)+1
+sa.bb <- st_bbox(occs.sf)
+sa.bb[1:2] <- sa.bb[1:2] - 5
+sa.bb[3:4] <- sa.bb[3:4] + 5
 ```
 
-### Download env
+### Download and process env
 ```{r env download, warnings = FALSE}
 
-dir.create("../pred/raw")
+dir.create("../pred/cat")
+dir.create("../pred/cont")
 dir.create("../pred/env")
 
-# paths <- lapply(list.files("../pred", pattern = "cov_paths.*txt", full.names = TRUE), 
-#                 read_delim, delim = "\\n", col_names = FALSE)
-
-
-paths <- read_delim("../pred/cov_paths_cont.txt", delim = "\\n", col_names = FALSE) %>% 
+# Download and process continuous data
+paths_cont <- read_delim("../pred/cov_paths_cont.txt", delim = "\\n", col_names = FALSE) %>% 
   pull()
 
-dest <- sapply(paths, function(x) paste("../pred/raw/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
-names <- sapply(paths, function(x) paste("../pred/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
+envLoad(paths_cont, filedir = "../pred/cont")
 
-for (i in 1:length(paths)) {
-  if(file.exists(dest[i]) | file.exists(names[i])){
-    if (file.exists(names[i])) {
-      print(paste("File exists:",names[i]))
-    } else {
-      print(paste("File exists:",dest[i]))
-    }
-    
-  } else {
-    
-    curl::curl_download(url = paths[i], destfile = dest[i])
-    
-    if(grepl(".*zip", dest[i])) {
-      unzip(dest[i], exdir = "../pred/raw")
-      
-    }
-  }
-}
+env.files <- list.files("../pred/cont", recursive = TRUE, pattern = ".*tif$") %>% 
+  sapply(function(x) paste("../pred/cont/", x, sep = ""))
 
-# if(length(dir("../pred/raw",all.files=TRUE)) != 0) {
-#   env.files <- list.files("../pred/raw", recursive = TRUE, pattern = ".*tif$") %>% 
-#     sapply(function(x) paste("../pred/raw/", x, sep = ""))
-#   
-#   env.raw <- lapply(env.files, raster)
-#   
-#   print("Reprojecting and croping raster layers, this will take a while...")
-#   
-#   env.crs <- lapply(env.raw, function(x) projectRaster(x,crs = proj.crs, res = proj.res))
-#   env.sa <- raster::crop(env, extent(sa.bb))
-#   
-# }  
-# 
-# if(length(dir("../pred/env",all.files=TRUE)) != 0) {
-#   env.files <- list.files("../pred/env", recursive = TRUE, pattern = ".*tif$") %>% 
-#     sapply(function(x) paste("../pred/env/", x, sep = ""))
-#   
-#   env.env <- lapply(env.files, raster)
-#   
-#   if(exists("env.sa")) {
-#    env.sa <- append(env.sa, env.env)
-#   } else {
-#     env.sa <- env.env
-#   }
-# }
+r <- raster("../pred/cont/wc2.1_5m_elev.tif") %>% 
+  raster::crop(extent(sa.bb))
 
+env.cont <- lapply(env.files, raster) %>% 
+  lapply(projectRaster, to = r)
 
-#unlink("../pred/raw", recursive = TRUE)
+writeRaster(env.cont, names, bylayer = TRUE)
+
+# Download and process categorical data
+paths_cat <- read_delim("../pred/cov_paths_cat.txt", delim = "\\n", col_names = FALSE) %>% 
+  pull()
+
+envLoad(paths_cat, filedir = "../pred/cat")
+
+env.files <- list.files("../pred/cat", recursive = TRUE, pattern = ".*tif$") %>% 
+  sapply(function(x) paste("../pred/cat/", x, sep = ""))
+
+env.cat <- lapply(env.files, raster) %>% 
+  lapply(projectRaster, to = r, method = "ngb") %>% 
+  stack()
+
+writeRaster(env.cat, names, format = "GTiff", bylayer = TRUE)
+
+#unlink("../pred/cat", recursive = TRUE)
+#unlink("../pred/cont", recursive = TRUE)
+```
+
+## PCA
+
+```{r}
+#GDD data modification to allow proper masking
+env.cont$CHELSA_gddlgd0_1981.2010_V.2.1.tif[is.na(env.cont$CHELSA_gddlgd0_1981.2010_V.2.1.tif)] <- 0
+
+mmask <- masterMask(env.cont)
+
+env.m <- mask(env.cont, mmask)
+
+dir.create("../pred/PCA")
+pca <- rasterPCA(env.m, spca = TRUE, maskCheck = FALSE, filename = "../pred/PCA/rasterPCA.tif", overwrite = TRUE)
+
+summary(pca$model)
+loadings(pca$model)
+plot(pca$map)
+
+propvar <- summary(pca$model)$sdev^2/sum(summary(pca$model)$sdev^2)
+cumprop <- cumsum(propvar)
+plot(1:23,cumprop, type = "o", xlab = "PCs", ylim = c(0,1))
+points(1:23, propvar, type = "o", col = "red")
+
+features <- cumprop < 0.96
+env.pca <- subset(pca$map, which(features))
+
+plot(env.pca)
 ```
 
