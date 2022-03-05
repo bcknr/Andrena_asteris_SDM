@@ -2,4 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-pred
+pred/cat
+pred/cont
+pred/dist
+pred/env
+pred/PCA
+

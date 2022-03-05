@@ -1,32 +1,62 @@
 ---
-title: "Andrena asteris SDM"
+title: "Andrena asteris"
+subtitle: "Species Distribution Model"
+author: "Mark Buckner"
+date: "`r Sys.Date()`"
 output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+setwd("Z:/Github/Andrena_asteris_SDM/R")
 ```
 
 ## Load Pkgs and functions
 
+Project directory structure:
+
+Andrena_asteris_SDM -
+
+  occ - occurrence datasets
+  
+  pred - .txt/s containing URLs to environmental data
+  
+  R - code
+
 ### Pkgs
 
-```{r pkgs, results='hide'}
+```{r pkgs, results='hide', warning=FALSE, message=FALSE}
 if(!require(pacman)) install.packages("pacman")
 library(pacman)
 
-pacman::p_load(tidyverse, lubridate, ggmap, spThin, CoordinateCleaner, curl, raster, sf,RStoolbox)
-pacman::p_load_gh("SEEG-Oxford/seegSDM")
+pacman::p_load(tidyverse, lubridate, ggmap, spThin, 
+               CoordinateCleaner, curl, raster, sf, 
+               RStoolbox, rgdal, ENMeval, rJava, rasterVis, tmap, 
+               rnaturalearth, grid)
+
+pacman::p_load_gh("SEEG-Oxford/seegSDM", "ropensci/rnaturalearthhires", "ropensci/rnaturalearthdata")
 
 ```
 
 ### Functions
-```{r}
-envLoad <- function(paths, filedir) {
-  dest <- sapply(paths, function(x) paste(filedir,"/", gsub(".*/(\\w+)", "\\1", x), sep = ""))
-  names <- sapply(paths, function(x) paste( gsub(".*/(\\w+)", "\\1", x), sep = "")) %>% 
+
+```{r Functions}
+#envLoad(): Downloads and processes environmental raster data from source. 
+#--paths = urls for data sources read in from .txt file;
+#--filedir = path to dir where the processed raw files are or will be stored.
+#--ref = anticipated path of a reference .tif with the correct resolution and projection (eg. worldclim layer) in the paths .txt ["../pred/env/NAME.tif"]
+#--bb = bounding box for study area (any object an extent can be extracted from)
+
+envLoad <- function(paths, filedir, ref, bb, type = "cont") {
+  
+  savepaths <- sapply(paths, function (x) gsub("\\?.*", "", x))
+  dest <- sapply(savepaths, function(x) paste(filedir,"/", gsub(".*/(\\w+)", "\\1", x), sep = "")) %>% 
+    sort()
+  names <- sapply(savepaths, function(x) paste( gsub(".*/(\\w+)", "\\1", x), sep = "")) %>% 
     sort() %>% 
     sapply(function(x) paste("../pred/env/",x, sep = ""))
+  
+  names <- str_replace(names, ".zip$", ".tif")
   
   for (i in 1:length(paths)) {
     if(file.exists(dest[i]) | file.exists(names[i])){
@@ -34,7 +64,7 @@ envLoad <- function(paths, filedir) {
         print(paste("File exists:",names[i]))
       } else {
         unproc_cont <- TRUE
-        print(paste("File exists:",dest[i]))
+        print(paste("File exists but is unprocessed:",dest[i]))
       }
       
     } else {
@@ -43,7 +73,11 @@ envLoad <- function(paths, filedir) {
       
       unproc_cont <- TRUE
       
-      curl::curl_download(url = paths[i], destfile = dest[i])
+      file <- try(curl::curl_download(url = paths[i], destfile = dest[i]))
+      
+      if(class(file) == "try-error") {
+        download.file(url = paths[i], destfile = dest[i], method = "curl")
+      }
       
       if(grepl(".*zip", dest[i])) {
         unzip(dest[i], exdir = filedir)
@@ -51,16 +85,42 @@ envLoad <- function(paths, filedir) {
       }
     }
   }
+  
+  if(!all(file.exists(names))) {
+    print("Processing files")
+    env.files <- list.files(filedir, recursive = TRUE, pattern = ".*tif$") %>% 
+      sapply(function(x) paste(filedir, "/", x, sep = ""))
+    
+    r <- raster(ref) %>% 
+      raster::crop(extent(bb)) %>% 
+      projectRaster(crs = "+init=epsg:4326")
+    
+    method <- ifelse(type == "cont", "bilinear", "ngb")
+    print(paste("Method:", method))
+    
+    env.stack <- lapply(env.files, raster) %>% 
+      lapply(projectRaster, to = r, method = "ngb") %>% 
+      stack()
+    
+    print("Saving stack")
+    
+    bylayer <- ifelse(nlayers(env.stack) > 1, TRUE, FALSE)
+    writeRaster(env.stack, names, format = "GTiff", bylayer = bylayer, overwrite = TRUE)
+    
+  } else {
+    print("Loading processed files")
+    env.stack <- stack(names)
+  }
+  return(env.stack)
+  
 }
 ```
-
-
 
 ## Load and process occ Data
 
 ### Load and filter by date
 
-```{r Occ}
+```{r Occ, message=FALSE, warning=FALSE}
 gbif <- read_tsv("../occ/Aa_GBIF.txt")
 scan <- read_csv("../occ/Aa_SCAN.csv")
 amnh <- read_tsv("../occ/Aa_AMNH.txt")
@@ -99,7 +159,7 @@ occ.joined <- full_join(t_scan, t_gbif, by = c("date", "lat", "lon")) %>%
   dplyr::select(date, lat, lon, data_source, scanID = id, gbifID, PBIUSI)
 
 date_start <- as.Date("1971-01-01")
-date_end <- as.Date("2000-12-31")
+date_end <- as.Date("2010-12-31")
 
 occ <- occ.joined %>% 
   filter(date >= date_start & date <= date_end) %>%
@@ -112,7 +172,7 @@ qmplot(x = lon, y = lat, data = occ, maptype = "toner-lite", mapcolor = "bw", so
 
 ### Check for georeferencing errors
 
-```{r}
+```{r Clean coordinates}
 flags <- clean_coordinates(x = occ, lon = "lon", 
                            lat = "lat", species = "spp",
                            tests = c("capitals", "centroids", 
@@ -127,13 +187,14 @@ occ.flagged <- occ[!flags$.summary,]
 write_csv(occ.flagged, file = "../occ/Aa_flagged.csv")
 ```
 
-`r length(which(!flags$.sea))` occurrences were flagged for potentially being in the sea. These points are located on Block Island, Cuttyhunk Island, and Penikese Island which matches the metadata. The georeferencing is sufficiently accurate for this analysis. 
+`r length(which(!flags$.sea))` occurrences were flagged for potentially being in the sea. These points are located on various Island which matches the metadata. The georeferencing is sufficiently accurate for this analysis. 
 
-A single point matches a research institution. The [occurrence remarks](https://bugguide.net/node/view/370287) provide no additional details this observation was excluded.
+Two points match research institutions. The [occurrence remarks](https://bugguide.net/node/view/370287) for 34630476 - Cornell University provide no additional details this observation was excluded. The metadata for 56951087 - Connecticut Agricultural Exp. list the address of the station.
 
-```{r}
+
+```{r Rm occ}
 occs <- occ %>% 
-  filter(is.na(scanID) | scanID != 34630476) %>% 
+  filter(is.na(scanID) | scanID != 56951087 & scanID != 34630476) %>% 
   write_csv(file = "../occ/Aa_combined.csv") %>% 
   dplyr::select(spp, lat, lon)
 ```
@@ -141,7 +202,7 @@ occs <- occ %>%
 
 ### Spatial Thinning w/ spThin
 
-```{r Thin occ, eval=FALSE}
+```{r Thin occ}
 thinned <-
   thin( loc.data = occs, 
         lat.col = "lat", long.col = "lon", 
@@ -157,20 +218,22 @@ thinned <-
 plotThin(thinned)
 ```
 
+#### Load thinned occ data
+
 ```{r load thin, message=FALSE}
 occt <- read_csv("../occ/Aa_thinned_full/Aa_thinned_thin1.csv") %>% 
   dplyr::select(lon, lat)
 
 
-qmplot(x = lon, y = lat, data = occs, maptype = "toner-lite", mapcolor = "bw", source = "stamen", force = T)
+qmplot(x = lon, y = lat, data = occt, maptype = "toner-lite", mapcolor = "bw", source = "stamen", force = T)
 
 ```
 
-Retained `r nrows(occt)` after spatial thinning.
+Retained `r nrow(occt)` after spatial thinning.
 
 ## Environmental Covariates
 
-Bioclimatic Variables
+Bioclimatic Variables - [CHELSA Climate v2.1](https://chelsa-climate.org/)
 
   - Bio 1 : Mean Annual Temperature
   - Bio 2 : Annual Mean Diurnal Range
@@ -191,37 +254,38 @@ Bioclimatic Variables
   - Bio 18 : Precipitation of Warmest Quarter
   - Bio 19 : Precipitation of Coldest Quarter
 
-Other Climatologies
+Other Climatologies - [CHELSA Climate v2.1](https://chelsa-climate.org/)
   
-  - gddlgd0 : Last growing degree day above 0^o^C
+  - gddlgd0 : Last growing degree day above 0C
   
 
-Topography
+Topography - [WorldClim SRTM 5 arc-min](https://www.worldclim.org/data/worldclim21.html)
 
-  - DEM?
+  - DEM
 
 Other 
 
-  - Soil sand https://files.isric.org/soilgrids/latest/data_aggregated/ 
-  - Soil silt
-  - Land use http://www.cec.org/north-american-environmental-atlas/land-cover-30m-2015-landsat-and-rapideye/
+  - [Soil sand at 0cm](https://zenodo.org/record/2525662#.YiISa3rMJOQ)
+  - [Soil clay at 0cm](https://zenodo.org/record/2525663#.YiISZnrMJOQ)
+  - [Land use](http://www.cec.org/north-american-environmental-atlas/land-cover-30m-2015-landsat-and-rapideye/) (excluded)
 
 ### Define study area
 
-```{r}
+```{r Define SA}
 proj.res <- c(0.08333333,0.08333333)
-proj.crs <- crs("+proj=longlat +datum=WGS84 +no_defs")
+proj.crs <- st_crs(4326)
 
 occs.sf <- sf::st_as_sf(occt, coords = c("lon", "lat"), crs = proj.crs) %>% 
   st_cast("MULTIPOINT") %>% 
   st_union()
 
 sa.bb <- st_bbox(occs.sf)
-sa.bb[1:2] <- sa.bb[1:2] - 5
-sa.bb[3:4] <- sa.bb[3:4] + 5
+sa.bb[1:2] <- sa.bb[1:2] - 7
+sa.bb[3:4] <- sa.bb[3:4] + 7
 ```
 
 ### Download and process env
+
 ```{r env download, warnings = FALSE}
 
 dir.create("../pred/cat")
@@ -229,57 +293,38 @@ dir.create("../pred/cont")
 dir.create("../pred/env")
 
 # Download and process continuous data
-paths_cont <- read_delim("../pred/cov_paths_cont.txt", delim = "\\n", col_names = FALSE) %>% 
+paths.cont <- read_delim("../pred/cov_paths_cont.txt", delim = "\\n", col_names = FALSE) %>% 
   pull()
 
-envLoad(paths_cont, filedir = "../pred/cont")
-
-env.files <- list.files("../pred/cont", recursive = TRUE, pattern = ".*tif$") %>% 
-  sapply(function(x) paste("../pred/cont/", x, sep = ""))
-
-r <- raster("../pred/cont/wc2.1_5m_elev.tif") %>% 
-  raster::crop(extent(sa.bb))
-
-env.cont <- lapply(env.files, raster) %>% 
-  lapply(projectRaster, to = r)
-
-writeRaster(env.cont, names, bylayer = TRUE)
+env.cont <- envLoad(paths.cont, filedir = "../pred/cont", ref = "../pred/cont/wc2.1_5m_elev.tif", bb = sa.bb)
 
 # Download and process categorical data
-paths_cat <- read_delim("../pred/cov_paths_cat.txt", delim = "\\n", col_names = FALSE) %>% 
+paths.cat <- read_delim("../pred/cov_paths_cat.txt", delim = "\\n", col_names = FALSE) %>% 
   pull()
 
-envLoad(paths_cat, filedir = "../pred/cat")
+env.cat <- envLoad(paths.cat, filedir = "../pred/cat", ref = "../pred/cont/wc2.1_5m_elev.tif", bb = sa.bb, type = "cat")%>% 
+  `names<-`("LU")
 
-env.files <- list.files("../pred/cat", recursive = TRUE, pattern = ".*tif$") %>% 
-  sapply(function(x) paste("../pred/cat/", x, sep = ""))
-
-env.cat <- lapply(env.files, raster) %>% 
-  lapply(projectRaster, to = r, method = "ngb") %>% 
-  stack()
-
-writeRaster(env.cat, names, format = "GTiff", bylayer = TRUE)
-
-#unlink("../pred/cat", recursive = TRUE)
-#unlink("../pred/cont", recursive = TRUE)
+unlink("../pred/cat", recursive = TRUE)
+unlink("../pred/cont", recursive = TRUE)
 ```
 
-## PCA
+### PCA
 
-```{r}
+```{r PCA, warning=FALSE}
 #GDD data modification to allow proper masking
-env.cont$CHELSA_gddlgd0_1981.2010_V.2.1.tif[is.na(env.cont$CHELSA_gddlgd0_1981.2010_V.2.1.tif)] <- 0
+env.cont$CHELSA_gddlgd0_1981.2010_V.2.1[is.na(env.cont$CHELSA_gddlgd0_1981.2010_V.2.1)] <- 0
 
 mmask <- masterMask(env.cont)
 
 env.m <- mask(env.cont, mmask)
+env.cat.m <- mask(env.cat, mmask)
 
 dir.create("../pred/PCA")
-pca <- rasterPCA(env.m, spca = TRUE, maskCheck = FALSE, filename = "../pred/PCA/rasterPCA.tif", overwrite = TRUE)
+pca <- rasterPCA(env.m, spca = TRUE, maskCheck = FALSE, filename = "../pred/PCA/envPCA.tif", overwrite = TRUE)
 
 summary(pca$model)
 loadings(pca$model)
-plot(pca$map)
 
 propvar <- summary(pca$model)$sdev^2/sum(summary(pca$model)$sdev^2)
 cumprop <- cumsum(propvar)
@@ -290,5 +335,186 @@ features <- cumprop < 0.96
 env.pca <- subset(pca$map, which(features))
 
 plot(env.pca)
+
+env <- env.pca #addLayer(env.pca, env.cat.m)
+
+plot(env[[1]], main = "PC 1 | A. asteris occ.")
+points(occt, pch = 16, cex = 0.5)
+```
+
+### Extract env. and MESS
+
+```{r MESS}
+occp <- st_as_sf(occt, coords = c("lon", "lat"), crs = proj.crs)
+occe <- raster::extract(env, occp)
+
+
+occ.sim <- similarity(env, occe)
+occ.mess <- occ.sim$similarity_min
+occ.sp <- as_Spatial(occp)
+
+myScale <- seq(cellStats(occ.mess, min), cellStats(occ.mess, max), length.out = 100)
+rasterVis::levelplot(occ.mess, main = "Environmental similarity", at = myScale, margin = FALSE) + 
+  latticeExtra::layer(sp.points(occ.sp, col="black"))
+
+### Remove occ which correspond to NA env
+occ.nna <- raster::extract(env, occp, sp = TRUE) %>% 
+  as.data.frame() %>% 
+  filter(!is.na(PC1))
+
+occe <- occ.nna[,1:(ncol(occ.nna)-2)]
+occp <- occ.nna[,(ncol(occ.nna)-1):ncol(occ.nna)]
+```
+
+In total `r sum(is.na(occe[,1]))` observations fall occur where the environmental data is NA. These correspond to islands and shoreline sites which are lost during masking due to the resolution used. 
+
+## SDM Model
+
+### Assign random background points
+
+Model performance improved using background points sampled from full study area over buffered convex hull.
+
+```{r Bkg. points}
+ # crs(env) <- crs(proj.crs)
+ # sa.bg <- st_convex_hull(occs.sf) %>% 
+ #   st_buffer(occs.sf, dist = 100000) %>% 
+ #   st_sf()
+ # 
+ # env.bg <- raster::mask(env, sa.bg)
+
+(points <- sum(!is.na(getValues(env[[1]])))*0.3)
+
+bg <- dismo::randomPoints(env, n = points) %>% 
+  as.data.frame()
+colnames(bg) <- colnames(occp)
+
+plot(env[[1]], main="PC1 | Background Points")
+points(bg, pch = 20, cex = 0.05)
+```
+
+### Partition for Model Evaluation
+
+Use block partitioning since n = `r nrow(occp)`.
+
+```{r Partition}
+block <- get.block(occp, bg)
+evalplot.grps(pts = occp, pts.grp = block$occs.grp, envs = env)
+```
+
+### Tune Model
+
+```{r Tune}
+e.mx <- ENMevaluate(occs = occp, envs = env, bg = bg, #categoricals = names(env.cat), 
+                    algorithm = 'maxent.jar', partitions = 'jackknife', parallel = TRUE, 
+                    tune.args = list(fc = c("L","Q","LQ","LQH","H"), rm = 1:5))
+
+e.mx
+```
+
+### Model Selection
+
+AUC: Radosavljevic and Anderson 2013
+
+```{r Model selection}
+evalplot.stats(e = e.mx, stats = c("auc.val"), color = "fc", x.var = "rm", 
+               error.bars = FALSE)
+
+res <- eval.results(e.mx)
+kable(res)
+
+opt.auc <- res %>% 
+  slice_max(auc.val.avg)
+kable(opt.auc)
+
+dismo::response(eval.models(e.mx)[[opt.auc$tune.args]])
+plot(eval.models(e.mx)[[opt.auc$tune.args]])
+```
+
+## Predictions
+
+```{r Prediction, warning=FALSE}
+dir.create("../pred/dist")
+pred <- eval.predictions(e.mx)[[opt.auc$tune.args]]
+plot(pred)
+
+writeRaster(pred, "../pred/dist/Aa_dist.tif", overwrite = TRUE)
+```
+
+### Threshold
+
+```{r Threshold}
+pred.vals <- raster::extract(pred, occp)
+or.min.threshold <- pred > min(pred.vals)
+writeRaster(or.min.threshold, "../pred/dist/Aa_dist_min.tif", overwrite = TRUE)
+plot(or.min.threshold)
+
+n10 <- ceiling(length(pred.vals) * 0.1)
+or.10.threshold <- pred > sort(pred.vals)[n10]
+writeRaster(or.10.threshold, "../pred/dist/Aa_dist_p10.tif", overwrite = TRUE)
+plot(or.10.threshold)
+```
+
+### ENM Null
+
+```{r Null model}
+mod.null <- ENMnulls(e.mx, mod.settings = list(fc = as.character(opt.auc$fc), rm = as.numeric(opt.auc$rm)), no.iter = 100, parallel = TRUE, quiet = TRUE)
+null.results(mod.null)
+evalplot.nulls(mod.null, stats = "auc.val", plot.type = "histogram")
+
+```
+
+## Visualize
+
+```{r}
+pal <- c("#ffffff","#dad7cd","#a3b18a","#588157","#3a5a40","#344e41")
+
+ref <- ne_countries(continent = c("North America", "South America"), scale = 50, returnclass = "sf") %>% 
+  st_crop(xmin = -170, ymin = 0, xmax = -11, ymax = 83)
+
+adm <- ne_states(country = c("United States of America", "Canada"), returnclass = "sf") %>% 
+  st_crop(xmin = -102, ymin = 24, xmax = -56, ymax = 52) 
+  
+bb <- sa.bb %>% 
+  st_as_sfc()
+
+refmap <- tm_shape(ref) +
+  tm_polygons(alpha = 0.3, col = "#405F63", border.alpha = 0) +
+  tm_shape(bb) +
+  tm_polygons(alpha = 0, border.col = "#EC4E20", lwd = 3) +
+  tm_layout(inner.margins = 0, bg.color = NA, frame = FALSE)
+
+
+
+names(pred) <- "Suitability"
+
+predmap <- tm_shape(pred) +
+    tm_raster(palette = pal, style = "cont", colorNA = "#E9EBEC", showNA = FALSE, 
+            alpha = 1, legend.reverse = TRUE, breaks = c(0, 0.25, 0.50, 0.75, 1)) +
+  tm_shape(adm) +
+    tm_polygons(alpha = 0.1, border.col = "#405F63", border.alpha = 0.2, col = "#EAEAEC") +
+  tm_compass(type = "arrow", show.labels = 0, color.light = "#000000", position = c(0.875, 0.1)) +
+  tm_scale_bar(breaks = c(0, 200), color.light = "#000000", text.size = 0.7,
+               position = c(0.872, 0.01)) +
+  tm_layout(inner.margins = 0, bg.color = "#ffffff", frame = "#D3D7D9",
+            legend.outside = T, legend.outside.position = "right")
+
+
+predmap
+print(refmap, vp = grid::viewport(0.54, 0.243, width = 0.25, height = 0.3))
+
+ext <- extent(pred)
+asp <- (ext[4] - ext[3])/(abs(ext[1]) - abs(ext[2]))
+vp <- grid::viewport(0.54, 0.225, width = 0.25, height = 0.3)
+
+tmap_save(predmap, filename = "../pred/dist/Aa_figure.png",
+          dpi = 600, insets_tm = refmap, insets_vp = vp,
+          height = asp*200, width = 200, units = "mm")
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
 ```
 
