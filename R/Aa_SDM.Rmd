@@ -3,7 +3,10 @@ title: "Andrena asteris"
 subtitle: "Species Distribution Model"
 author: "Mark Buckner"
 date: "`r Sys.Date()`"
-output: github_document
+output:
+    github_document:
+    toc: true
+    toc_depth: 3
 ---
 
 ```{r setup, include=FALSE}
@@ -13,15 +16,15 @@ setwd("Z:/Github/Andrena_asteris_SDM/R")
 
 ## Load Pkgs and functions
 
-Project directory structure:
+| Project directory structure:
 
-Andrena_asteris_SDM -
+| Andrena_asteris_SDM -
 
-  occ - occurrence datasets
+|  occ - occurrence datasets
   
-  pred - .txt/s containing URLs to environmental data
+|  pred - .txt/s containing URLs to environmental data
   
-  R - code
+|  R - code
 
 ### Pkgs
 

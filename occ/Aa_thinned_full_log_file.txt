@@ -22,3 +22,37 @@ Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin2.csv
 Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin3.csv
 Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin4.csv
 Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin5.csv
+********************************************** 
+ Beginning Spatial Thinning.
+ Script Started at: Sat Mar 05 07:24:00 2022
+
+Thinning Parameter Used (in km): 10
+Number of replicates of thinning script: 100
+
+Elapsed time for thinning completion
+0.03 0 0.03 NA NA
+
+Number of data.frames per locations retained
+loc.cnt df.freq
+49
+100
+Maximum number of records after thinning: 49
+Number of data.frames with max records: 100
+
+**New *.csv file creation:**
+Created new output directory: ../occ/Aa_thinned_full/
+../occ/Aa_thinned_full/Aa_thinned_thin1_new.csv ' already exists. Renaming file 
+                                   to avoid overwriting.
+Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin1_new.csv
+../occ/Aa_thinned_full/Aa_thinned_thin2_new.csv ' already exists. Renaming file 
+                                   to avoid overwriting.
+Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin2_new.csv
+../occ/Aa_thinned_full/Aa_thinned_thin3_new.csv ' already exists. Renaming file 
+                                   to avoid overwriting.
+Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin3_new.csv
+../occ/Aa_thinned_full/Aa_thinned_thin4_new.csv ' already exists. Renaming file 
+                                   to avoid overwriting.
+Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin4_new.csv
+../occ/Aa_thinned_full/Aa_thinned_thin5_new.csv ' already exists. Renaming file 
+                                   to avoid overwriting.
+Writing file: ../occ/Aa_thinned_full/Aa_thinned_thin5_new.csv
