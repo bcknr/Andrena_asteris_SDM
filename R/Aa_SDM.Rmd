@@ -4,7 +4,7 @@ subtitle: "Species Distribution Model"
 author: "Mark Buckner"
 date: "`r Sys.Date()`"
 output:
-    github_document:
+  github_document:
     toc: true
     toc_depth: 3
 ---
@@ -161,7 +161,7 @@ occ.joined <- full_join(t_scan, t_gbif, by = c("date", "lat", "lon")) %>%
   unite(data_source, source.x, source.y, source, sep = "/", na.rm = TRUE) %>% 
   dplyr::select(date, lat, lon, data_source, scanID = id, gbifID, PBIUSI)
 
-date_start <- as.Date("1971-01-01")
+date_start <- as.Date("1981-01-01")
 date_end <- as.Date("2010-12-31")
 
 occ <- occ.joined %>% 
