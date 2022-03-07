@@ -397,11 +397,11 @@ points(bg, pch = 20, cex = 0.05)
 
 ### Partition for Model Evaluation
 
-Use block partitioning since n = `r nrow(occp)`.
+n = `r nrow(occp)`.
 
 ```{r Partition}
-block <- get.block(occp, bg)
-evalplot.grps(pts = occp, pts.grp = block$occs.grp, envs = env)
+part <- get.jackknife(occp, bg)
+evalplot.grps(pts = occp, pts.grp = part$occs.grp, envs = env)
 ```
 
 ### Tune Model
