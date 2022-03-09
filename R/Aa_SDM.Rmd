@@ -501,9 +501,9 @@ predmap <- tm_shape(pred) +
   tm_shape(adm) +
     tm_polygons(alpha = 0.1, border.col = "#405F63", border.alpha = 0.2, col = "#EAEAEC") +
   tm_shape(occv) +
-    tm_dots()+
+    tm_dots(shape = 1, size = 0.08, alpha = 0.85)+
   tm_shape(cortland) +
-    tm_dots(col = "#F9C80E", shape = 18, size = 0.1) +
+    tm_dots(shape = 19, size = 0.1,alpha = 0.85) +
   tm_compass(type = "arrow", show.labels = 0, color.light = "#000000", position = c(0.875, 0.1)) +
   tm_scale_bar(breaks = c(0, 200), color.light = "#000000", text.size = 0.7,
                position = c(0.872, 0.01)) +
