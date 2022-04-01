@@ -1,0 +1,42 @@
+﻿index,family,subfamily,species,spp,group,median_depth,min_depth,max_depth
+1,Andrenidae,Andreninae,Andrena (Callandrena) haynesi Parker and Griswold,Andrena haynesi,B,160,50,270
+2,Andrenidae,Andreninae,Andrena (Callandrena) afimbriata LaBerge,Andrena afimbriata,B,107,107,107
+3,Andrenidae,Andreninae,Andrena (Callandrena) rudbeckiae Robertson,Andrena rudbeckiae,B,107,107,107
+4,Andrenidae,Andreninae,Andrena (Poecilandrena) mucorea Morawitz,Andrena mucorea,Other Andrena,92,79,105
+5,Andrenidae,Andreninae,Andrena (Callandrena) sitiliae LaBerge,Andrena sitiliae,B,88,81,94
+6,Andrenidae,Andreninae,Andrena (Diandrena) macswaini Linsley,Andrena macswaini,Other Andrena,78,78,78
+7,Andrenidae,Andreninae,Andrena (Callandrena) asteris Robertson,Andrena asteris,B,75,60,90
+8,Andrenidae,Andreninae,Andrena (Callandrena) senticulosa LaBerge,Andrena senticulosa,B,71,58,83
+9,Andrenidae,Andreninae,Andrena (Melandrena) nigroaenea (Kirby),Andrena nigroaenea,Other Andrena,70,40,100
+10,Andrenidae,Andreninae,Andrena (Onagandrena) mojavensis Linsley and MacSwain,Andrena mojavensis,Other Andrena,68,60,75
+11,Andrenidae,Andreninae,Andrena (Onagandrena) oenotherae Timberlake,Andrena oenotherae,Other Andrena,54,47,61
+12,Andrenidae,Andreninae,Andrena (Leucandrena) macra Mitchell,Andrena macra,Other Andrena,49,30,68
+13,Andrenidae,Andreninae,Andrena (Tylandrena) perplexa Smith,Andrena perplexa,Other Andrena,48,25,70
+14,Andrenidae,Andreninae,Andrena (Onagandrena) deserticola Timberlake,Andrena deserticola,Other Andrena,45,45,45
+15,Andrenidae,Andreninae,Andrena (Callandrena) accepta Viereck,Andrena accepta,A,44,31,56
+16,Andrenidae,Andreninae,Andrena (Plastandrena) crataegi Robertson,Andrena crataegi,Other Andrena,43,33,53
+17,Andrenidae,Andreninae,Andrena (Iomelissa) violae Robertson,Andrena violae,Other Andrena,38,38,38
+18,Andrenidae,Andreninae,Andrena (Leucandrena) barbilabris (Kirby),Andrena barbilabris,Other Andrena,38,15,60
+19,Andrenidae,Andreninae,Andrena (Larandrena) miserabilis Cresson,Andrena miserabilis,Other Andrena,38,28,47
+20,Andrenidae,Andreninae,Andrena (Melandrena) nivalis Smith,Andrena nivalis,Other Andrena,32,23,40
+21,Andrenidae,Andreninae,Andrena (Diandrena) foxii Cockerell,Andrena foxii,Other Andrena,28,19,37
+22,Andrenidae,Andreninae,Andrena (Melandrena) vicina Smith,Andrena vicina,Other Andrena,26,15,36
+23,Andrenidae,Andreninae,Andrena (Plastandrena) prunorum Cockerell,Andrena prunorum,Other Andrena,22,5.5,39
+24,Andrenidae,Andreninae,Andrena (Micrandrena) personata Robertson,Andrena personata,Other Andrena,22,16.5,28
+25,Andrenidae,Andreninae,Andrena (Tylandrena) erythrogaster Ashmead,Andrena erythrogaster,Other Andrena,22,12,31
+26,Andrenidae,Andreninae,Andrena (Diandrena) cuneilabris Viereck,Andrena cuneilabris,Other Andrena,21,16,25
+27,Andrenidae,Andreninae,Andrena (Melandrena) carlini Cockerell,Andrena carlini,Other Andrena,20,13.5,26
+28,Andrenidae,Andreninae,Andrena (Scrapteropsis) fenningeri Viereck,Andrena fenningeri,Other Andrena,20,13,26
+29,Andrenidae,Andreninae,Andrena (Diandrena) eothina Linsley and MacSwain,Andrena eothina,Other Andrena,19,19,19
+30,Andrenidae,Andreninae,Andrena (Scrapteropsis) alleghaniensis Viereck,Andrena alleghaniensis,Other Andrena,18,13,23
+31,Andrenidae,Andreninae,Andrena (Melandrena) regularis Malloch,Andrena regularis,Other Andrena,16,10,22
+32,Andrenidae,Andreninae,Andrena (Leucandrena) erythronii Robertson,Andrena erythronii,Other Andrena,15,7.5,23
+33,Andrenidae,Andreninae,Andrena (Holandrena) cressonii cressonii Robertson,Andrena cressonii,Other Andrena,15,11.5,19
+34,Andrenidae,Andreninae,Andrena (Melandrena) dunningi Cockerell,Andrena dunningi,Other Andrena,13,6,20
+35,Andrenidae,Andreninae,Andrena (Andrena) frigida Smith,Andrena frigida,Other Andrena,12,8,16
+36,Andrenidae,Andreninae,Andrena (Thysandrena) candida Smith,Andrena candida,Other Andrena,12,10,14
+37,Andrenidae,Andreninae,Andrena (Diandrena) agoseridis Thorp,Andrena agoseridis,Other Andrena,12,11.5,12.5
+38,Andrenidae,Andreninae,Andrena (Ptilandrena) erigeniae Robertson,Andrena erigeniae,Other Andrena,12,8,15
+39,Andrenidae,Andreninae,Andrena (Diandrena) chalybaea Cockerell,Andrena chalybaea,Other Andrena,9,7.5,10
+40,Andrenidae,Andreninae,Andrena (Ptilandrena) complexa (Viereck),Andrena complexa,Other Andrena,8,7,9.5
+41,Andrenidae,Andreninae,Andrena (Ptilandrena) suavis Timberlake,Andrena suavis,Other Andrena,6,5.5,7
