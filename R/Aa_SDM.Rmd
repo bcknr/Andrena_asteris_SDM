@@ -102,7 +102,7 @@ envLoad <- function(paths, filedir, ref, bb, type = "cont") {
     print(paste("Method:", method))
     
     env.stack <- lapply(env.files, raster) %>% 
-      lapply(projectRaster, to = r, method = "ngb") %>% 
+      lapply(projectRaster, to = r, method = method) %>% 
       stack()
     
     print("Saving stack")
