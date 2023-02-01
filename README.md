@@ -8,6 +8,7 @@ Cite as:
 
 Anna C. Espinoza, Katherine R. Urban-Mead, Mark A. Buckner, Nathalia Flórez-Gómez, Jordan G. Kueneman, Bryan N. Danforth "Biology of Andrena (Callandrena Sensu Lato) Asteris Robertson (Hymenoptera: Andrenidae), an Eastern Aster Specialist that Makes a Very Deep Nest," Northeastern Naturalist, 29(4), 474-491, (4 January 2023) 
 
+```
 @article{10.1656/045.029.0406,
 author = {Anna C. Espinoza and Katherine R. Urban-Mead and Mark A. Buckner and Nathalia Fl{\'o}rez-G{\'o}mez and Jordan G. Kueneman and Bryan N. Danforth},
 title = {{Biology of Andrena (Callandrena Sensu Lato) Asteris Robertson (Hymenoptera: Andrenidae), an Eastern Aster Specialist that Makes a Very Deep Nest}},
@@ -20,3 +21,4 @@ year = {2023},
 doi = {10.1656/045.029.0406},
 URL = {https://doi.org/10.1656/045.029.0406}
 }
+```
